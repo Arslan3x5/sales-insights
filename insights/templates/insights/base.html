@@ -5,33 +5,37 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}Sales Insights{% endblock %}</title>
 <style>
-:root{--bg:#f4f5f7;--surface:#fff;--ink:#16202a;--muted:#5f6b78;--line:#dde2e8;--accent:#2a5bd7;--accent-ink:#fff;--bad:#c2410c}
-@media (prefers-color-scheme:dark){:root{--bg:#0f141a;--surface:#171e26;--ink:#e7edf3;--muted:#8d9aa8;--line:#27313c;--accent:#6c97ff;--accent-ink:#0a1020;--bad:#f08a5d;color-scheme:dark}}
+:root{--bg:#f5f6fb;--surface:#fff;--ink:#0f172a;--muted:#64748b;--line:#e6e9f2;--accent:#4f46e5;--accent2:#06b6d4;--bad:#e11d48;--ok:#059669;--shadow:0 1px 2px rgba(15,23,42,.05),0 10px 30px rgba(15,23,42,.06)}
+@media (prefers-color-scheme:dark){:root{--bg:#0a0f1f;--surface:#121936;--ink:#e8ecf8;--muted:#8d99b8;--line:#232d52;--accent:#8b8ff8;--accent2:#22d3ee;--bad:#fb7185;--ok:#34d399;--shadow:0 1px 2px rgba(0,0,0,.4),0 12px 34px rgba(0,0,0,.35);color-scheme:dark}}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+body{margin:0;min-height:100vh;color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:radial-gradient(900px 420px at 90% -10%,color-mix(in srgb,var(--accent) 16%,transparent),transparent),radial-gradient(700px 380px at -5% 0,color-mix(in srgb,var(--accent2) 12%,transparent),transparent),var(--bg)}
 a{color:var(--accent)}
-header{padding:1rem clamp(1rem,4vw,2.5rem);border-bottom:1px solid var(--line);background:var(--surface)}
-header a{font-weight:700;font-size:1.15rem;text-decoration:none;color:var(--ink);letter-spacing:-.02em}
-main{max-width:980px;margin:auto;padding:2rem clamp(1rem,4vw,2.5rem)}
-h1{margin:0 0 .3rem;font-size:clamp(1.6rem,3vw,2.1rem);letter-spacing:-.03em}
-.sub{margin:0 0 1.5rem;color:var(--muted)}
-.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:1.2rem}
-.btn{display:inline-block;background:var(--accent);color:var(--accent-ink);border:0;border-radius:10px;padding:.65rem 1.2rem;font:inherit;font-weight:600;cursor:pointer;text-decoration:none}
-input[type=file]{width:100%;padding:1.4rem;border:2px dashed var(--line);border-radius:12px;background:var(--bg);color:inherit;font:inherit}
-.errorlist{color:var(--bad);margin:.6rem 0 0;padding-left:1.1rem}
-.table-wrap{overflow-x:auto}
-table{border-collapse:collapse;width:100%;font-size:.9rem}
-th,td{text-align:left;padding:.5rem .7rem;border-bottom:1px solid var(--line);white-space:nowrap}
-th{color:var(--muted);font-weight:600}
-.chips{display:flex;gap:.8rem;flex-wrap:wrap;margin-bottom:1.2rem}
-.chip strong{display:block;font-size:1.7rem;line-height:1.1}
-.chip span{color:var(--muted);font-size:.85rem}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.top{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;padding:.75rem clamp(1rem,4vw,2.5rem);background:color-mix(in srgb,var(--surface) 75%,transparent);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+.logo{display:flex;align-items:center;gap:.6rem;font-weight:800;letter-spacing:-.03em;text-decoration:none;color:var(--ink);font-size:1.1rem}
+.logo i{width:1.7rem;height:1.7rem;border-radius:9px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:grid;place-items:center;color:#fff;font-style:normal;font-size:.9rem}
+main{max-width:1100px;margin:auto;padding:2rem clamp(1rem,4vw,2.5rem) 4rem}
+h1{margin:0;font-size:clamp(1.7rem,3.4vw,2.4rem);letter-spacing:-.04em;line-height:1.15}
+h2{margin:0 0 .2rem;font-size:1.05rem;letter-spacing:-.01em}
+.sub{margin:.3rem 0 0;color:var(--muted)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:1.3rem;box-shadow:var(--shadow)}
+.btn{display:inline-flex;align-items:center;gap:.4rem;border:0;border-radius:12px;padding:.7rem 1.2rem;font:inherit;font-weight:600;cursor:pointer;text-decoration:none;color:#fff;background:linear-gradient(135deg,var(--accent),color-mix(in srgb,var(--accent) 60%,var(--accent2)));box-shadow:0 6px 18px color-mix(in srgb,var(--accent) 35%,transparent);transition:transform .15s,filter .15s}
+.btn:hover{transform:translateY(-1px);filter:brightness(1.07)}
+.btn.ghost{background:var(--surface);color:var(--ink);border:1px solid var(--line);box-shadow:none}
+.pill{display:inline-block;padding:.15rem .7rem;border-radius:99px;font-size:.8rem;font-weight:600;background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent)}
+.pill.bad{background:color-mix(in srgb,var(--bad) 12%,transparent);color:var(--bad)}
 .muted{color:var(--muted)}
 .stack{display:grid;gap:1.2rem}
+.table-wrap{overflow-x:auto;margin-top:.6rem}
+table{border-collapse:collapse;width:100%;font-size:.9rem}
+th,td{text-align:left;padding:.55rem .7rem;border-bottom:1px solid var(--line);white-space:nowrap}
+th{color:var(--muted);font-weight:600;font-size:.8rem;text-transform:uppercase;letter-spacing:.05em}
+.errorlist{color:var(--bad);margin:.7rem 0 0;padding-left:1.1rem}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
 <body>
-<header><a href="{% url 'upload' %}">Sales Insights</a></header>
+<nav class="top"><a class="logo" href="{% url 'upload' %}"><i>◢</i>Sales Insights</a><a class="btn ghost" href="{% url 'upload' %}">New upload</a></nav>
 <main>{% block content %}{% endblock %}</main>
 </body>
 </html>
