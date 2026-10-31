@@ -1,0 +1,101 @@
+<style>
+.seg{display:grid;gap:.8rem;margin-top:.9rem}
+.seg .row{grid-template-columns:minmax(90px,130px) 1fr auto}
+.seg small{display:block;color:var(--muted);font-size:.75rem}
+.mini{display:grid;grid-template-columns:1fr 1fr;gap:.8rem;margin-top:.9rem}
+.mini div{padding:.8rem;border-radius:14px;background:color-mix(in srgb,var(--accent) 7%,transparent)}
+.mini strong{display:block;font-size:1.4rem;letter-spacing:-.03em}
+.mini span{color:var(--muted);font-size:.8rem}
+.cols{display:flex;gap:4px;align-items:flex-end;margin-top:1rem}
+.cols .c{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;font-size:.7rem;color:var(--muted);min-width:0}
+.cols .c i{display:block;width:100%;border-radius:6px 6px 0 0;background:color-mix(in srgb,var(--accent) 50%,var(--line))}
+.cols .c i.hi{background:linear-gradient(180deg,var(--accent2),var(--accent))}
+.cols .c span{margin-top:4px;height:1em}
+.grow td:last-child{font-weight:700}
+.up{color:var(--ok)}.down{color:var(--bad)}
+.reco{display:grid;gap:.7rem;margin:.9rem 0 0;padding:0;list-style:none}
+.reco li{padding:.8rem 1rem;border-radius:14px;border:1px solid var(--line);border-left:4px solid var(--accent);background:var(--surface)}
+.note{font-size:.8rem;color:var(--muted);margin:.8rem 0 0}
+</style>
+<div id="extras" class="stack" style="margin-top:1.2rem"></div>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const node = document.getElementById("summary"), root = document.getElementById("extras");
+  if (!node || !root) return;
+  const S = JSON.parse(node.textContent), X = S.extras, K = S.kpis;
+  const card = (t, s, b) => `<div class="card"><h2>${t}</h2><p class="sub" style="margin:0">${s}</p>${b}</div>`;
+  if (!X) { root.innerHTML = card("Deeper insights", "Re-upload this file to unlock customer segments, growth, patterns and recommendations.", ""); return; }
+
+  const esc = t => { const d = document.createElement("div"); d.textContent = t; return d.innerHTML; };
+  const fmt = n => Math.round(n).toLocaleString();
+  const label = m => new Date(m + "-01T00:00:00").toLocaleDateString(undefined, {month: "short", year: "2-digit"});
+  const total = K.revenue || 1;
+  const cols = (items, hi, every = 1) => {
+    const v = i => i.revenue ?? i.share, max = Math.max(...items.map(v)) || 1;
+    return `<div class="cols">` + items.map((i, n) => `<div class="c" title="${esc(i.label)}: ${fmt(v(i))}"><i class="${i.label === hi ? "hi" : ""}" style="height:${Math.max(v(i) / max * 118, 2)}px"></i><span>${n % every ? "" : esc(i.label)}</span></div>`).join("") + `</div>`;
+  };
+  const best = items => items.reduce((a, b) => (b.revenue ?? b.share) > (a.revenue ?? a.share) ? b : a);
+  const worst = items => items.reduce((a, b) => (b.revenue ?? b.share) < (a.revenue ?? a.share) ? b : a);
+  const reco = [], out = [];
+
+  // Growth
+  const g = S.monthly.map((m, i, a) => ({m: m.month, rev: m.revenue, g: i && a[i - 1].revenue ? (m.revenue / a[i - 1].revenue - 1) * 100 : null}));
+  const rows = g.filter(x => x.g !== null).slice(-8);
+  if (rows.length) out.push(card("Month-over-month growth", "Change in revenue versus the previous month.",
+    `<div class="table-wrap"><table class="grow"><tr><th>Month</th><th>Revenue</th><th>Change</th></tr>` +
+    rows.map(r => `<tr><td>${label(r.m)}</td><td>${fmt(r.rev)}</td><td class="${r.g >= 0 ? "up" : "down"}">${r.g >= 0 ? "▲" : "▼"} ${Math.abs(r.g).toFixed(1)}%</td></tr>`).join("") +
+    `</table></div><p class="note">The first and last months may be partial, which can look like a drop.</p>`));
+
+  // Segments
+  if (X.segments) {
+    const D = {Champions: "4+ orders, bought in the last 90 days", Loyal: "2+ orders, bought within 12 months", New: "1 order in the last 90 days", Occasional: "1 order, 3 to 12 months ago", "At risk": "2+ orders, silent for 6 to 12 months", Lost: "no purchase for over 12 months"};
+    const max = Math.max(...X.segments.map(s => s.share)) || 1;
+    out.push(card("Customer segments", "Customers grouped by how recently and how often they buy.",
+      `<div class="seg rank">` + X.segments.map(s => `<div class="row"><span class="n"><strong>${s.name}</strong><small>${D[s.name]}</small></span><span class="track"><i style="width:${s.share / max * 100}%"></i></span><span class="val">${fmt(s.count)} · ${s.share}%</span></div>`).join("") +
+      `</div><p class="note">Share is of revenue from customers with an ID. Thresholds are simple rules, adjust them to your business.</p>`));
+    const ar = X.segments.find(s => s.name === "At risk");
+    if (ar && ar.count) reco.push(`<strong>Win back ${fmt(ar.count)} at-risk customers.</strong> They bought repeatedly before and brought in ${fmt(ar.revenue)}. A reminder or offer costs less than finding new customers.`);
+    const ch = X.segments.find(s => s.name === "Champions");
+    if (ch && ch.count) reco.push(`<strong>Look after your ${fmt(ch.count)} champions.</strong> They generate ${ch.share}% of identified revenue, so early access or loyalty perks are worth testing.`);
+  }
+
+  // Repeat + concentration + basket + geo
+  const mini = [];
+  if (X.repeat) mini.push([X.repeat.rate + "%", `repeat customers (${fmt(X.repeat.repeat)} of ${fmt(X.repeat.customers)})`]);
+  if (X.top10_share !== undefined) mini.push([X.top10_share + "%", "revenue from top 10 customers"]);
+  mini.push([X.basket.avg_units, "units per order"], [fmt(X.basket.median_value), "median order value"], [X.basket.avg_lines, "product lines per order"], [X.basket.big_orders_share + "%", "revenue from the biggest 10% of orders"]);
+  if (X.geo) mini.push([X.geo.top_share + "%", `revenue from ${esc(X.geo.top)} (${X.geo.countries} countries)`]);
+  mini.push([fmt(K.cancelled_value), `value of cancelled invoices (${K.cancel_rate}%)`]);
+  out.push(card("Customer and order health", "Retention, dependence and basket size at a glance.", `<div class="mini">` + mini.map(m => `<div><strong>${m[0]}</strong><span>${m[1]}</span></div>`).join("") + `</div>`));
+
+  if (X.repeat && X.repeat.rate < 60) reco.push(`<strong>Only ${X.repeat.rate}% of customers come back.</strong> Test a follow-up email or a second-order discount to lift repeat purchases.`);
+  if (X.top10_share >= 25) reco.push(`<strong>Your top 10 customers drive ${X.top10_share}% of identified revenue.</strong> Losing one would hurt, so assign someone to look after them.`);
+  if (K.cancel_rate >= 5) reco.push(`<strong>${K.cancel_rate}% of invoices are cancelled.</strong> Check the products and periods behind them for quality or delivery problems.`);
+  if (X.geo && X.geo.top_share >= 80) reco.push(`<strong>${X.geo.top_share}% of revenue comes from ${esc(X.geo.top)}.</strong> That is concentrated, so explore a second market carefully.`);
+
+  // Top customers
+  if (X.top_customers) out.push(card("Top 10 customers", "Customer IDs ranked by revenue.",
+    `<div class="table-wrap"><table><tr><th>Customer</th><th>Orders</th><th>Revenue</th></tr>${X.top_customers.map(c => `<tr><td>${esc(c.id)}</td><td>${c.orders}</td><td>${fmt(c.revenue)}</td></tr>`).join("")}</table></div>`));
+
+  // Pareto + bottom
+  const P = X.pareto;
+  out.push(card("Product focus (80/20)", `${fmt(P.for_80)} of ${fmt(P.products)} products (${P.pct}%) make up 80% of revenue.`,
+    `<h2 style="margin-top:1rem;font-size:.9rem">Lowest earners</h2><div class="table-wrap"><table>${X.bottom_products.map(p => `<tr><td>${esc(p.name)}</td><td>${fmt(p.revenue)}</td></tr>`).join("")}</table></div><p class="note">Candidates to discount, bundle or drop. Check stock levels first.</p>`));
+  if (P.pct <= 30) reco.push(`<strong>${P.pct}% of products make 80% of revenue.</strong> Keep those always in stock and review the long tail for clearance.`);
+
+  // Patterns
+  const hrs = X.hourly.filter(h => h.revenue > 0).length > 1;
+  const wd = best(X.weekday), wl = worst(X.weekday), avg = X.weekday.reduce((a, b) => a + b.revenue, 0) / 7;
+  out.push(card("When customers buy", "Weekday, hour and season patterns.",
+    `<h2 style="margin-top:1rem;font-size:.9rem">By weekday</h2>${cols(X.weekday, wd.label)}` +
+    (hrs ? `<h2 style="margin-top:1.2rem;font-size:.9rem">By hour</h2>${cols(X.hourly.map(h => ({...h, label: h.label})), best(X.hourly).label, 3)}` : "") +
+    `<h2 style="margin-top:1.2rem;font-size:.9rem">By quarter (share of revenue)</h2>${cols(X.quarters, best(X.quarters).label)}`));
+  if (avg && wl.revenue < avg * 0.5) reco.push(`<strong>${wl.label} is your weakest day</strong> at ${Math.round(wl.revenue / avg * 100)}% of the daily average. Try a ${wl.label} promotion, and keep ${wd.label} well staffed.`);
+  const bq = best(X.quarters);
+  if (bq.share >= 35) reco.push(`<strong>${bq.label} brings ${bq.share}% of revenue.</strong> Plan stock and cash for it well ahead.`);
+
+  const recoCard = card("Recommended actions", "Generated automatically from the numbers on this page.",
+    `<ul class="reco">${(reco.length ? reco : ["No strong warning signals found. Keep monitoring growth and repeat purchases."]).map(r => `<li>${r}</li>`).join("")}</ul><p class="note">These are rule-based starting points for discussion, not guarantees. Always check them against what you know about the business.</p>`);
+  root.innerHTML = recoCard + out.join("");
+});
+</script>

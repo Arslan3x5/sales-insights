@@ -2,95 +2,94 @@
 {% block title %}{{ dataset.name }} · Sales Insights{% endblock %}
 {% block content %}
 <style>
-.bars{display:grid;gap:.6rem;margin-top:.8rem}
-.bar{display:grid;grid-template-columns:minmax(90px,210px) 1fr auto;gap:.7rem;align-items:center;font-size:.9rem}
-.bar .name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.bar .track{height:10px;border-radius:99px;background:var(--line);overflow:hidden}
-.bar .track i{display:block;height:100%;border-radius:99px;background:var(--accent)}
-.bar .val{color:var(--muted);font-variant-numeric:tabular-nums}
-.chart{width:100%;height:auto;display:block;margin-top:.6rem}
+.head{display:flex;flex-wrap:wrap;gap:1rem;justify-content:space-between;align-items:flex-end;margin-bottom:1.5rem}
+.tags{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.8rem}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem}
+.kpi{position:relative;overflow:hidden}
+.kpi::before{content:"";position:absolute;inset:0 0 auto 0;height:4px;background:linear-gradient(90deg,var(--accent),var(--accent2))}
+.kpi span{color:var(--muted);font-size:.8rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+.kpi strong{display:block;margin-top:.3rem;font-size:clamp(1.6rem,3vw,2.2rem);letter-spacing:-.04em;line-height:1.1}
+.banner{padding:1.1rem 1.4rem;border-radius:20px;color:#fff;font-size:1.05rem;background:linear-gradient(120deg,var(--accent),color-mix(in srgb,var(--accent) 45%,var(--accent2)));box-shadow:0 10px 30px color-mix(in srgb,var(--accent) 30%,transparent)}
+.chart{width:100%;height:auto;display:block;margin-top:.8rem}
 .chart text{fill:var(--muted);font-size:11px}
-.chart .grid{stroke:var(--line);stroke-width:1}
-.chart rect{fill:var(--accent);transition:opacity .15s}
-.chart rect:hover{opacity:.7}
-.insight{margin:0;font-size:1.05rem}
+.chart .grid{stroke:var(--line)}
+.chart rect{fill:url(#g);transition:opacity .15s}
+.chart rect:hover{opacity:.65}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:1.2rem}
+.rank{display:grid;gap:.75rem;margin-top:.9rem}
+.row{display:grid;grid-template-columns:1.4rem minmax(80px,200px) 1fr auto;gap:.7rem;align-items:center;font-size:.9rem}
+.row b{color:var(--muted);font-size:.8rem}
+.row .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.track{height:9px;border-radius:99px;background:var(--line);overflow:hidden}
+.track i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--accent),var(--accent2))}
+.val{color:var(--muted);font-variant-numeric:tabular-nums}
+.fun{display:grid;gap:.6rem;margin-top:.9rem}
+.fr{display:grid;grid-template-columns:minmax(120px,300px) 1fr auto;gap:.8rem;align-items:center;font-size:.88rem}
+.fr .track i.cut{background:var(--bad);opacity:.75}
+.fr .track i.keep{background:var(--ok)}
 details summary{cursor:pointer;font-weight:600}
-@media (max-width:760px){.two{grid-template-columns:1fr}.bar{grid-template-columns:minmax(80px,140px) 1fr auto}}
+@media (max-width:860px){.kpis{grid-template-columns:1fr 1fr}.two{grid-template-columns:1fr}.fr{grid-template-columns:1fr auto}.fr .track{grid-column:1/-1;order:3}}
 </style>
 
-<h1>{{ dataset.name }}</h1>
-<p class="sub">Cleaned, summarised and visualised.</p>
-
-<div class="stack">
 {% if dataset.summary %}
 {% with k=dataset.summary.kpis c=dataset.summary.cleaning %}
-  <div class="chips">
-    <div class="card chip"><strong>{{ k.revenue|floatformat:"0g" }}</strong><span>total revenue</span></div>
-    <div class="card chip"><strong>{{ k.orders|floatformat:"0g" }}</strong><span>orders</span></div>
-    <div class="card chip"><strong>{{ k.customers|floatformat:"0g" }}</strong><span>customers</span></div>
-    <div class="card chip"><strong>{{ k.avg_order_value|floatformat:"0g" }}</strong><span>avg order value</span></div>
-    <div class="card chip"><strong>{{ k.cancel_rate }}%</strong><span>invoices cancelled</span></div>
+<div class="head">
+  <div>
+    <h1>{{ dataset.name }}</h1>
+    <div class="tags">
+      <span class="pill">{{ k.first_date }} → {{ k.last_date }}</span>
+      <span class="pill">{{ c.clean_rows|floatformat:"0g" }} clean rows</span>
+      <span class="pill bad">{{ k.cancel_rate }}% invoices cancelled</span>
+    </div>
   </div>
-  <p class="muted" style="margin:0">Data from {{ k.first_date }} to {{ k.last_date }}.</p>
+  <a class="btn" href="{% url 'upload' %}">Analyse another file</a>
+</div>
 
-  <div class="card"><p class="insight" id="insight"></p></div>
+<div class="stack">
+  <section class="kpis">
+    <div class="card kpi"><span>Revenue</span><strong>{{ k.revenue|floatformat:"0g" }}</strong></div>
+    <div class="card kpi"><span>Orders</span><strong>{{ k.orders|floatformat:"0g" }}</strong></div>
+    <div class="card kpi"><span>Customers</span><strong>{{ k.customers|floatformat:"0g" }}</strong></div>
+    <div class="card kpi"><span>Avg order value</span><strong>{{ k.avg_order_value|floatformat:"0g" }}</strong></div>
+  </section>
 
-  <div class="card">
-    <strong>Revenue by month</strong>
-    <div id="monthly"></div>
-  </div>
+  <div class="banner" id="insight"></div>
+
+  <div class="card"><h2>Revenue by month</h2><p class="sub" style="margin:0">Hover a bar for the exact value.</p><div id="monthly"></div></div>
 
   <div class="two">
-    <div class="card">
-      <strong>Top 10 products by revenue</strong>
-      <div class="bars" id="products"></div>
-    </div>
-    <div class="card">
-      <strong>Top countries by revenue</strong>
-      <div class="bars" id="countries"></div>
-    </div>
+    <div class="card"><h2>Top products</h2><p class="sub" style="margin:0">By revenue</p><div class="rank" id="products"></div></div>
+    <div class="card"><h2>Top countries</h2><p class="sub" style="margin:0">By revenue</p><div class="rank" id="countries"></div></div>
   </div>
 
   <div class="card">
-    <strong>Data cleaning report</strong>
-    <p class="muted">Kept {{ c.clean_rows|floatformat:"0g" }} of {{ c.raw_rows|floatformat:"0g" }} rows ({% widthratio c.clean_rows c.raw_rows 100 %}%).
-      {% if k.missing_customer_rows %}{{ k.missing_customer_rows|floatformat:"0g" }} remaining rows have no customer ID. They count toward revenue but not toward customer numbers.{% endif %}</p>
-    <div class="table-wrap"><table>
-      <tr><th>Step</th><th>Rows removed</th></tr>
-      {% for s in c.steps %}<tr><td>{{ s.label }}</td><td>{{ s.rows|floatformat:"0g" }}</td></tr>{% endfor %}
-    </table></div>
+    <h2>How the data was cleaned</h2>
+    <p class="sub" style="margin:0">Kept {{ c.clean_rows|floatformat:"0g" }} of {{ c.raw_rows|floatformat:"0g" }} rows ({% widthratio c.clean_rows c.raw_rows 100 %}%).{% if k.missing_customer_rows %} {{ k.missing_customer_rows|floatformat:"0g" }} rows have no customer ID: they count toward revenue, not toward customer numbers.{% endif %}</p>
+    <div class="fun" id="funnel"></div>
   </div>
 
   <div class="card">
     <details>
-      <summary>Monthly numbers</summary>
+      <summary>Monthly numbers, detected columns and data preview</summary>
       <div class="table-wrap"><table>
         <tr><th>Month</th><th>Revenue</th><th>Orders</th></tr>
         {% for m in dataset.summary.monthly %}<tr><td>{{ m.month }}</td><td>{{ m.revenue|floatformat:"0g" }}</td><td>{{ m.orders|floatformat:"0g" }}</td></tr>{% endfor %}
       </table></div>
-    </details>
-  </div>
-
-  {{ dataset.summary|json_script:"summary" }}
-{% endwith %}
-{% endif %}
-
-  <div class="card">
-    <details>
-      <summary>Detected columns and data preview</summary>
       <div class="table-wrap"><table>
         <tr><th>Meaning</th><th>Your column</th></tr>
         {% for key, col in dataset.mapping.items %}<tr><td>{{ key }}</td><td>{{ col }}</td></tr>{% endfor %}
       </table></div>
       <div class="table-wrap"><table>
-        <tr>{% for c in columns %}<th>{{ c }}</th>{% endfor %}</tr>
+        <tr>{% for h in columns %}<th>{{ h }}</th>{% endfor %}</tr>
         {% for row in rows %}<tr>{% for cell in row %}<td>{{ cell }}</td>{% endfor %}</tr>{% endfor %}
       </table></div>
     </details>
   </div>
-  <p><a class="btn" href="{% url 'upload' %}">Upload another file</a></p>
 </div>
+{% include "insights/extras.html" %}
+{{ dataset.summary|json_script:"summary" }}
+{% endwith %}
+{% endif %}
 
 <script>
 const node = document.getElementById("summary");
@@ -100,48 +99,43 @@ if (node) {
   const short = n => n >= 1e6 ? (n / 1e6).toFixed(1) + "M" : n >= 1e3 ? (n / 1e3).toFixed(0) + "k" : String(Math.round(n));
   const label = m => new Date(m + "-01T00:00:00").toLocaleDateString(undefined, {month: "short", year: "2-digit"});
   const esc = t => { const d = document.createElement("div"); d.textContent = t; return d.innerHTML; };
+  const $ = id => document.getElementById(id);
 
   function monthly() {
-    const d = S.monthly;
-    if (!d.length) return;
-    const W = 720, H = 280, L = 48, R = 10, T = 10, B = 34, w = W - L - R, h = H - T - B;
-    const max = Math.max(...d.map(x => x.revenue)) || 1;
-    const step = w / d.length, bw = Math.max(4, step * 0.62), every = Math.ceil(d.length / 8);
-    let svg = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Revenue by month">`;
-    for (let i = 0; i <= 4; i++) {
-      const y = T + h - h * i / 4;
-      svg += `<line class="grid" x1="${L}" x2="${W - R}" y1="${y}" y2="${y}"/><text x="${L - 6}" y="${y + 4}" text-anchor="end">${short(max * i / 4)}</text>`;
-    }
+    const d = S.monthly; if (!d.length) return;
+    const W = 760, H = 290, L = 50, R = 8, T = 10, B = 34, w = W - L - R, h = H - T - B;
+    const max = Math.max(...d.map(x => x.revenue)) || 1, step = w / d.length, bw = Math.max(5, step * 0.6), every = Math.ceil(d.length / 9);
+    let s = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Revenue by month"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--accent2)"/><stop offset="1" stop-color="var(--accent)"/></linearGradient></defs>`;
+    for (let i = 0; i <= 4; i++) { const y = T + h - h * i / 4; s += `<line class="grid" x1="${L}" x2="${W - R}" y1="${y}" y2="${y}"/><text x="${L - 8}" y="${y + 4}" text-anchor="end">${short(max * i / 4)}</text>`; }
     d.forEach((m, i) => {
-      const bh = h * m.revenue / max, x = L + i * step + (step - bw) / 2, y = T + h - bh;
-      svg += `<rect x="${x}" y="${y}" width="${bw}" height="${bh}" rx="3"><title>${label(m.month)}: ${fmt(m.revenue)}</title></rect>`;
-      if (i % every === 0) svg += `<text x="${x + bw / 2}" y="${H - 12}" text-anchor="middle">${label(m.month)}</text>`;
+      const bh = h * m.revenue / max, x = L + i * step + (step - bw) / 2;
+      s += `<rect x="${x}" y="${T + h - bh}" width="${bw}" height="${bh}" rx="5"><title>${label(m.month)}: ${fmt(m.revenue)}</title></rect>`;
+      if (i % every === 0) s += `<text x="${x + bw / 2}" y="${H - 12}" text-anchor="middle">${label(m.month)}</text>`;
     });
-    document.getElementById("monthly").innerHTML = svg + "</svg>";
+    $("monthly").innerHTML = s + "</svg>";
   }
 
-  function bars(id, items) {
+  function ranked(id, items) {
     const max = Math.max(...items.map(x => x.revenue)) || 1;
-    document.getElementById(id).innerHTML = items.map(x =>
-      `<div class="bar"><span class="name" title="${esc(x.name)}">${esc(x.name)}</span>` +
-      `<span class="track"><i style="width:${(x.revenue / max * 100).toFixed(1)}%"></i></span>` +
-      `<span class="val">${fmt(x.revenue)}</span></div>`).join("");
+    $(id).innerHTML = items.map((x, i) => `<div class="row"><b>${i + 1}</b><span class="n" title="${esc(x.name)}">${esc(x.name)}</span><span class="track"><i style="width:${(x.revenue / max * 100).toFixed(1)}%"></i></span><span class="val">${fmt(x.revenue)}</span></div>`).join("");
+  }
+
+  function funnel() {
+    const c = S.cleaning, raw = c.raw_rows || 1;
+    let h = `<div class="fr"><span>All rows</span><span class="track"><i style="width:100%;background:var(--muted)"></i></span><span class="val">${fmt(raw)}</span></div>`;
+    c.steps.filter(s => s.rows > 0).forEach(s => h += `<div class="fr"><span>− ${esc(s.label)}</span><span class="track"><i class="cut" style="width:${Math.max(s.rows / raw * 100, 0.8).toFixed(1)}%"></i></span><span class="val">${fmt(s.rows)}</span></div>`);
+    h += `<div class="fr"><strong>Clean rows used</strong><span class="track"><i class="keep" style="width:${(c.clean_rows / raw * 100).toFixed(1)}%"></i></span><strong>${fmt(c.clean_rows)}</strong></div>`;
+    $("funnel").innerHTML = h;
   }
 
   function insight() {
-    const total = S.kpis.revenue || 1;
-    const best = S.monthly.reduce((a, b) => b.revenue > a.revenue ? b : a, S.monthly[0]);
-    const top = S.top_products[0];
-    const parts = [];
-    if (best) parts.push(`Best month: <strong>${label(best.month)}</strong> (${(best.revenue / total * 100).toFixed(0)}% of revenue).`);
-    if (top) parts.push(`Top product: <strong>${esc(top.name)}</strong> (${(top.revenue / total * 100).toFixed(1)}% of revenue).`);
-    document.getElementById("insight").innerHTML = parts.join(" ");
+    const total = S.kpis.revenue || 1, best = S.monthly.reduce((a, b) => b.revenue > a.revenue ? b : a, S.monthly[0]), top = S.top_products[0], p = [];
+    if (best) p.push(`Best month: <strong>${label(best.month)}</strong> (${(best.revenue / total * 100).toFixed(0)}% of revenue).`);
+    if (top) p.push(`Top product: <strong>${esc(top.name)}</strong> (${(top.revenue / total * 100).toFixed(1)}% of revenue).`);
+    $("insight").innerHTML = "💡 " + p.join(" ");
   }
 
-  monthly();
-  bars("products", S.top_products);
-  bars("countries", S.top_countries);
-  insight();
+  monthly(); ranked("products", S.top_products); ranked("countries", S.top_countries); funnel(); insight();
 }
 </script>
 {% endblock %}

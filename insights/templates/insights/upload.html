@@ -1,19 +1,33 @@
 {% extends "insights/base.html" %}
 {% block content %}
-<h1>Upload your sales data</h1>
-<p class="sub">CSV with a date, product, quantity and price. Column names are matched automatically.</p>
-<div class="stack">
+<style>
+.hero{text-align:center;max-width:640px;margin:2rem auto 2rem}
+.hero h1{font-size:clamp(2rem,5vw,3.2rem)}
+.hero h1 em{font-style:normal;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.drop{display:grid;gap:1rem;justify-items:center;padding:2.2rem 1.2rem;border:2px dashed color-mix(in srgb,var(--accent) 45%,var(--line));border-radius:20px;background:color-mix(in srgb,var(--accent) 5%,var(--surface))}
+.drop input{max-width:100%;color:var(--muted)}
+.recent{list-style:none;margin:.6rem 0 0;padding:0}
+.recent li{display:flex;justify-content:space-between;gap:1rem;padding:.6rem 0;border-bottom:1px solid var(--line)}
+.recent li:last-child{border:0}
+</style>
+<section class="hero">
+  <h1>Turn raw sales data into <em>clear decisions</em></h1>
+  <p class="sub">Upload a sales CSV. It's validated, cleaned and turned into KPIs, trends and top performers in seconds.</p>
+</section>
+<div class="stack" style="max-width:640px;margin:auto">
   <form class="card" method="post" enctype="multipart/form-data">{% csrf_token %}
-    {{ form.file }}
+    <div class="drop">
+      {{ form.file }}
+      <button class="btn" type="submit">Upload and analyse</button>
+      <span class="muted" style="font-size:.85rem">Needs: description, quantity, invoice date, price. Max 25 MB.</span>
+    </div>
     {{ form.file.errors }}
-    <p><button class="btn" type="submit">Upload and check</button></p>
-    <p class="muted">Required: description, quantity, invoice date, price. Max 25 MB.</p>
   </form>
   {% if recent %}
   <div class="card">
-    <strong>Recent uploads</strong>
-    <ul>
-      {% for d in recent %}<li><a href="{% url 'dataset_detail' d.pk %}">{{ d.name }}</a> <span class="muted">· {{ d.row_count }} rows</span></li>{% endfor %}
+    <h2>Recent uploads</h2>
+    <ul class="recent">
+      {% for d in recent %}<li><a href="{% url 'dataset_detail' d.pk %}">{{ d.name }}</a><span class="muted">{{ d.row_count|floatformat:"0g" }} rows</span></li>{% endfor %}
     </ul>
   </div>
   {% endif %}

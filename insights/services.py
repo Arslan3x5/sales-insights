@@ -188,4 +188,96 @@ def analyze(file, mapping):
         "monthly": monthly_list,
         "top_products": top_products,
         "top_countries": countries,
+        "extras": extra_insights(data),
     }
+
+def extra_insights(data):
+    """Business-decision metrics computed from the cleaned rows."""
+    out = {}
+    total = float(data["revenue"].sum()) or 1.0
+
+    dow = data.groupby(data["date"].dt.dayofweek)["revenue"].sum()
+    out["weekday"] = [
+        {"label": n, "revenue": round(float(dow.get(i, 0)), 2)}
+        for i, n in enumerate(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"])
+    ]
+    hr = data.groupby(data["date"].dt.hour)["revenue"].sum()
+    out["hourly"] = [{"label": f"{h:02d}", "revenue": round(float(hr.get(h, 0)), 2)} for h in range(24)]
+    q = data.groupby(data["date"].dt.quarter)["revenue"].sum()
+    out["quarters"] = [{"label": f"Q{i}", "share": round(float(q.get(i, 0)) / total * 100, 1)} for i in range(1, 5)]
+
+    prod = data.groupby("description")["revenue"].sum().sort_values(ascending=False)
+    n80 = int(((prod.cumsum() / total) < 0.8).sum()) + 1
+    out["pareto"] = {
+        "products": int(len(prod)),
+        "for_80": n80,
+        "pct": round(n80 / len(prod) * 100, 1),
+    }
+    out["bottom_products"] = [{"name": k, "revenue": round(float(v), 2)} for k, v in prod.tail(5).items()]
+
+    per_order = data.groupby("invoice").agg(
+        units=("quantity", "sum"), lines=("stock", "count"), value=("revenue", "sum")
+    )
+    big = per_order[per_order["value"] >= per_order["value"].quantile(0.9)]
+    out["basket"] = {
+        "avg_units": round(float(per_order["units"].mean()), 1),
+        "avg_lines": round(float(per_order["lines"].mean()), 1),
+        "median_value": round(float(per_order["value"].median()), 2),
+        "big_orders_share": round(float(big["value"].sum()) / total * 100, 1),
+    }
+
+    if data["country"].notna().any():
+        by = data.groupby("country")["revenue"].sum().sort_values(ascending=False)
+        out["geo"] = {
+            "countries": int(len(by)),
+            "top": str(by.index[0]),
+            "top_share": round(float(by.iloc[0]) / total * 100, 1),
+        }
+
+    known = data[data["customer"].notna()]
+    if not known.empty:
+        ref = known["date"].max() + pd.Timedelta(days=1)
+        cust = known.groupby("customer").agg(
+            last=("date", "max"), orders=("invoice", "nunique"), revenue=("revenue", "sum")
+        )
+        cust["recency"] = (ref - cust["last"]).dt.days
+
+        def segment(r):
+            if r.recency > 365:
+                return "Lost"
+            if r.orders >= 2 and r.recency > 180:
+                return "At risk"
+            if r.orders >= 4 and r.recency <= 90:
+                return "Champions"
+            if r.orders >= 2:
+                return "Loyal"
+            if r.recency <= 90:
+                return "New"
+            return "Occasional"
+
+        cust["segment"] = cust.apply(segment, axis=1)
+        seg_total = float(cust["revenue"].sum()) or 1.0
+        segs = cust.groupby("segment").agg(count=("orders", "size"), revenue=("revenue", "sum"))
+        order = ["Champions", "Loyal", "New", "Occasional", "At risk", "Lost"]
+        out["segments"] = [
+            {
+                "name": s,
+                "count": int(segs.loc[s, "count"]),
+                "revenue": round(float(segs.loc[s, "revenue"]), 2),
+                "share": round(float(segs.loc[s, "revenue"]) / seg_total * 100, 1),
+            }
+            for s in order if s in segs.index
+        ]
+        repeat = cust["orders"] > 1
+        out["repeat"] = {
+            "customers": int(len(cust)),
+            "repeat": int(repeat.sum()),
+            "rate": round(float(repeat.mean()) * 100, 1),
+        }
+        top = cust.nlargest(10, "revenue")
+        out["top_customers"] = [
+            {"id": str(i).split(".")[0], "orders": int(r.orders), "revenue": round(float(r.revenue), 2)}
+            for i, r in top.iterrows()
+        ]
+        out["top10_share"] = round(float(top["revenue"].sum()) / seg_total * 100, 1)
+    return out

@@ -85,3 +85,14 @@ class DashboardTests(TestCase):
         response = self.client.post(reverse("upload"), {"file": f}, follow=True)
         self.assertContains(response, 'id="monthly"')
         self.assertContains(response, 'id="summary"')
+
+
+class ExtrasTests(TestCase):
+    def test_extra_insights_are_computed(self):
+        mapping = map_columns(
+            ["Invoice", "StockCode", "Description", "Quantity", "InvoiceDate", "Price", "Customer ID", "Country"]
+        )
+        extras = analyze(io.BytesIO(CLEANING_CSV.encode()), mapping)["extras"]
+        self.assertEqual(len(extras["weekday"]), 7)
+        self.assertEqual(extras["pareto"]["products"], 2)
+        self.assertEqual(round(sum(q["share"] for q in extras["quarters"])), 100)
