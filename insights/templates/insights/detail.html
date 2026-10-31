@@ -1,8 +1,26 @@
 {% extends "insights/base.html" %}
 {% block title %}{{ dataset.name }} · Sales Insights{% endblock %}
 {% block content %}
+<style>
+.bars{display:grid;gap:.6rem;margin-top:.8rem}
+.bar{display:grid;grid-template-columns:minmax(90px,210px) 1fr auto;gap:.7rem;align-items:center;font-size:.9rem}
+.bar .name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar .track{height:10px;border-radius:99px;background:var(--line);overflow:hidden}
+.bar .track i{display:block;height:100%;border-radius:99px;background:var(--accent)}
+.bar .val{color:var(--muted);font-variant-numeric:tabular-nums}
+.chart{width:100%;height:auto;display:block;margin-top:.6rem}
+.chart text{fill:var(--muted);font-size:11px}
+.chart .grid{stroke:var(--line);stroke-width:1}
+.chart rect{fill:var(--accent);transition:opacity .15s}
+.chart rect:hover{opacity:.7}
+.insight{margin:0;font-size:1.05rem}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:1.2rem}
+details summary{cursor:pointer;font-weight:600}
+@media (max-width:760px){.two{grid-template-columns:1fr}.bar{grid-template-columns:minmax(80px,140px) 1fr auto}}
+</style>
+
 <h1>{{ dataset.name }}</h1>
-<p class="sub">Cleaned and summarised. Charts come next.</p>
+<p class="sub">Cleaned, summarised and visualised.</p>
 
 <div class="stack">
 {% if dataset.summary %}
@@ -14,7 +32,25 @@
     <div class="card chip"><strong>{{ k.avg_order_value|floatformat:"0g" }}</strong><span>avg order value</span></div>
     <div class="card chip"><strong>{{ k.cancel_rate }}%</strong><span>invoices cancelled</span></div>
   </div>
-  <p class="muted">Data from {{ k.first_date }} to {{ k.last_date }}.</p>
+  <p class="muted" style="margin:0">Data from {{ k.first_date }} to {{ k.last_date }}.</p>
+
+  <div class="card"><p class="insight" id="insight"></p></div>
+
+  <div class="card">
+    <strong>Revenue by month</strong>
+    <div id="monthly"></div>
+  </div>
+
+  <div class="two">
+    <div class="card">
+      <strong>Top 10 products by revenue</strong>
+      <div class="bars" id="products"></div>
+    </div>
+    <div class="card">
+      <strong>Top countries by revenue</strong>
+      <div class="bars" id="countries"></div>
+    </div>
+  </div>
 
   <div class="card">
     <strong>Data cleaning report</strong>
@@ -27,47 +63,85 @@
   </div>
 
   <div class="card">
-    <strong>Revenue by month</strong>
-    <div class="table-wrap"><table>
-      <tr><th>Month</th><th>Revenue</th><th>Orders</th></tr>
-      {% for m in dataset.summary.monthly %}<tr><td>{{ m.month }}</td><td>{{ m.revenue|floatformat:"0g" }}</td><td>{{ m.orders|floatformat:"0g" }}</td></tr>{% endfor %}
-    </table></div>
+    <details>
+      <summary>Monthly numbers</summary>
+      <div class="table-wrap"><table>
+        <tr><th>Month</th><th>Revenue</th><th>Orders</th></tr>
+        {% for m in dataset.summary.monthly %}<tr><td>{{ m.month }}</td><td>{{ m.revenue|floatformat:"0g" }}</td><td>{{ m.orders|floatformat:"0g" }}</td></tr>{% endfor %}
+      </table></div>
+    </details>
   </div>
 
-  <div class="card">
-    <strong>Top 10 products by revenue</strong>
-    <div class="table-wrap"><table>
-      <tr><th>Product</th><th>Revenue</th><th>Units</th></tr>
-      {% for p in dataset.summary.top_products %}<tr><td>{{ p.name }}</td><td>{{ p.revenue|floatformat:"0g" }}</td><td>{{ p.units|floatformat:"0g" }}</td></tr>{% endfor %}
-    </table></div>
-  </div>
-
-  {% if dataset.summary.top_countries %}
-  <div class="card">
-    <strong>Top countries by revenue</strong>
-    <div class="table-wrap"><table>
-      <tr><th>Country</th><th>Revenue</th></tr>
-      {% for p in dataset.summary.top_countries %}<tr><td>{{ p.name }}</td><td>{{ p.revenue|floatformat:"0g" }}</td></tr>{% endfor %}
-    </table></div>
-  </div>
-  {% endif %}
+  {{ dataset.summary|json_script:"summary" }}
 {% endwith %}
 {% endif %}
 
   <div class="card">
-    <strong>Detected columns</strong>
-    <div class="table-wrap"><table>
-      <tr><th>Meaning</th><th>Your column</th></tr>
-      {% for key, col in dataset.mapping.items %}<tr><td>{{ key }}</td><td>{{ col }}</td></tr>{% endfor %}
-    </table></div>
-  </div>
-  <div class="card">
-    <strong>Preview (first 5 rows)</strong>
-    <div class="table-wrap"><table>
-      <tr>{% for c in columns %}<th>{{ c }}</th>{% endfor %}</tr>
-      {% for row in rows %}<tr>{% for cell in row %}<td>{{ cell }}</td>{% endfor %}</tr>{% endfor %}
-    </table></div>
+    <details>
+      <summary>Detected columns and data preview</summary>
+      <div class="table-wrap"><table>
+        <tr><th>Meaning</th><th>Your column</th></tr>
+        {% for key, col in dataset.mapping.items %}<tr><td>{{ key }}</td><td>{{ col }}</td></tr>{% endfor %}
+      </table></div>
+      <div class="table-wrap"><table>
+        <tr>{% for c in columns %}<th>{{ c }}</th>{% endfor %}</tr>
+        {% for row in rows %}<tr>{% for cell in row %}<td>{{ cell }}</td>{% endfor %}</tr>{% endfor %}
+      </table></div>
+    </details>
   </div>
   <p><a class="btn" href="{% url 'upload' %}">Upload another file</a></p>
 </div>
+
+<script>
+const node = document.getElementById("summary");
+if (node) {
+  const S = JSON.parse(node.textContent);
+  const fmt = n => Math.round(n).toLocaleString();
+  const short = n => n >= 1e6 ? (n / 1e6).toFixed(1) + "M" : n >= 1e3 ? (n / 1e3).toFixed(0) + "k" : String(Math.round(n));
+  const label = m => new Date(m + "-01T00:00:00").toLocaleDateString(undefined, {month: "short", year: "2-digit"});
+  const esc = t => { const d = document.createElement("div"); d.textContent = t; return d.innerHTML; };
+
+  function monthly() {
+    const d = S.monthly;
+    if (!d.length) return;
+    const W = 720, H = 280, L = 48, R = 10, T = 10, B = 34, w = W - L - R, h = H - T - B;
+    const max = Math.max(...d.map(x => x.revenue)) || 1;
+    const step = w / d.length, bw = Math.max(4, step * 0.62), every = Math.ceil(d.length / 8);
+    let svg = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Revenue by month">`;
+    for (let i = 0; i <= 4; i++) {
+      const y = T + h - h * i / 4;
+      svg += `<line class="grid" x1="${L}" x2="${W - R}" y1="${y}" y2="${y}"/><text x="${L - 6}" y="${y + 4}" text-anchor="end">${short(max * i / 4)}</text>`;
+    }
+    d.forEach((m, i) => {
+      const bh = h * m.revenue / max, x = L + i * step + (step - bw) / 2, y = T + h - bh;
+      svg += `<rect x="${x}" y="${y}" width="${bw}" height="${bh}" rx="3"><title>${label(m.month)}: ${fmt(m.revenue)}</title></rect>`;
+      if (i % every === 0) svg += `<text x="${x + bw / 2}" y="${H - 12}" text-anchor="middle">${label(m.month)}</text>`;
+    });
+    document.getElementById("monthly").innerHTML = svg + "</svg>";
+  }
+
+  function bars(id, items) {
+    const max = Math.max(...items.map(x => x.revenue)) || 1;
+    document.getElementById(id).innerHTML = items.map(x =>
+      `<div class="bar"><span class="name" title="${esc(x.name)}">${esc(x.name)}</span>` +
+      `<span class="track"><i style="width:${(x.revenue / max * 100).toFixed(1)}%"></i></span>` +
+      `<span class="val">${fmt(x.revenue)}</span></div>`).join("");
+  }
+
+  function insight() {
+    const total = S.kpis.revenue || 1;
+    const best = S.monthly.reduce((a, b) => b.revenue > a.revenue ? b : a, S.monthly[0]);
+    const top = S.top_products[0];
+    const parts = [];
+    if (best) parts.push(`Best month: <strong>${label(best.month)}</strong> (${(best.revenue / total * 100).toFixed(0)}% of revenue).`);
+    if (top) parts.push(`Top product: <strong>${esc(top.name)}</strong> (${(top.revenue / total * 100).toFixed(1)}% of revenue).`);
+    document.getElementById("insight").innerHTML = parts.join(" ");
+  }
+
+  monthly();
+  bars("products", S.top_products);
+  bars("countries", S.top_countries);
+  insight();
+}
+</script>
 {% endblock %}
