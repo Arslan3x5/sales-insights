@@ -1,0 +1,73 @@
+{% extends "insights/base.html" %}
+{% block title %}{{ dataset.name }} · Sales Insights{% endblock %}
+{% block content %}
+<h1>{{ dataset.name }}</h1>
+<p class="sub">Cleaned and summarised. Charts come next.</p>
+
+<div class="stack">
+{% if dataset.summary %}
+{% with k=dataset.summary.kpis c=dataset.summary.cleaning %}
+  <div class="chips">
+    <div class="card chip"><strong>{{ k.revenue|floatformat:"0g" }}</strong><span>total revenue</span></div>
+    <div class="card chip"><strong>{{ k.orders|floatformat:"0g" }}</strong><span>orders</span></div>
+    <div class="card chip"><strong>{{ k.customers|floatformat:"0g" }}</strong><span>customers</span></div>
+    <div class="card chip"><strong>{{ k.avg_order_value|floatformat:"0g" }}</strong><span>avg order value</span></div>
+    <div class="card chip"><strong>{{ k.cancel_rate }}%</strong><span>invoices cancelled</span></div>
+  </div>
+  <p class="muted">Data from {{ k.first_date }} to {{ k.last_date }}.</p>
+
+  <div class="card">
+    <strong>Data cleaning report</strong>
+    <p class="muted">Kept {{ c.clean_rows|floatformat:"0g" }} of {{ c.raw_rows|floatformat:"0g" }} rows ({% widthratio c.clean_rows c.raw_rows 100 %}%).
+      {% if k.missing_customer_rows %}{{ k.missing_customer_rows|floatformat:"0g" }} remaining rows have no customer ID. They count toward revenue but not toward customer numbers.{% endif %}</p>
+    <div class="table-wrap"><table>
+      <tr><th>Step</th><th>Rows removed</th></tr>
+      {% for s in c.steps %}<tr><td>{{ s.label }}</td><td>{{ s.rows|floatformat:"0g" }}</td></tr>{% endfor %}
+    </table></div>
+  </div>
+
+  <div class="card">
+    <strong>Revenue by month</strong>
+    <div class="table-wrap"><table>
+      <tr><th>Month</th><th>Revenue</th><th>Orders</th></tr>
+      {% for m in dataset.summary.monthly %}<tr><td>{{ m.month }}</td><td>{{ m.revenue|floatformat:"0g" }}</td><td>{{ m.orders|floatformat:"0g" }}</td></tr>{% endfor %}
+    </table></div>
+  </div>
+
+  <div class="card">
+    <strong>Top 10 products by revenue</strong>
+    <div class="table-wrap"><table>
+      <tr><th>Product</th><th>Revenue</th><th>Units</th></tr>
+      {% for p in dataset.summary.top_products %}<tr><td>{{ p.name }}</td><td>{{ p.revenue|floatformat:"0g" }}</td><td>{{ p.units|floatformat:"0g" }}</td></tr>{% endfor %}
+    </table></div>
+  </div>
+
+  {% if dataset.summary.top_countries %}
+  <div class="card">
+    <strong>Top countries by revenue</strong>
+    <div class="table-wrap"><table>
+      <tr><th>Country</th><th>Revenue</th></tr>
+      {% for p in dataset.summary.top_countries %}<tr><td>{{ p.name }}</td><td>{{ p.revenue|floatformat:"0g" }}</td></tr>{% endfor %}
+    </table></div>
+  </div>
+  {% endif %}
+{% endwith %}
+{% endif %}
+
+  <div class="card">
+    <strong>Detected columns</strong>
+    <div class="table-wrap"><table>
+      <tr><th>Meaning</th><th>Your column</th></tr>
+      {% for key, col in dataset.mapping.items %}<tr><td>{{ key }}</td><td>{{ col }}</td></tr>{% endfor %}
+    </table></div>
+  </div>
+  <div class="card">
+    <strong>Preview (first 5 rows)</strong>
+    <div class="table-wrap"><table>
+      <tr>{% for c in columns %}<th>{{ c }}</th>{% endfor %}</tr>
+      {% for row in rows %}<tr>{% for cell in row %}<td>{{ cell }}</td>{% endfor %}</tr>{% endfor %}
+    </table></div>
+  </div>
+  <p><a class="btn" href="{% url 'upload' %}">Upload another file</a></p>
+</div>
+{% endblock %}

@@ -1,0 +1,21 @@
+{% extends "insights/base.html" %}
+{% block content %}
+<h1>Upload your sales data</h1>
+<p class="sub">CSV with a date, product, quantity and price. Column names are matched automatically.</p>
+<div class="stack">
+  <form class="card" method="post" enctype="multipart/form-data">{% csrf_token %}
+    {{ form.file }}
+    {{ form.file.errors }}
+    <p><button class="btn" type="submit">Upload and check</button></p>
+    <p class="muted">Required: description, quantity, invoice date, price. Max 25 MB.</p>
+  </form>
+  {% if recent %}
+  <div class="card">
+    <strong>Recent uploads</strong>
+    <ul>
+      {% for d in recent %}<li><a href="{% url 'dataset_detail' d.pk %}">{{ d.name }}</a> <span class="muted">· {{ d.row_count }} rows</span></li>{% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
