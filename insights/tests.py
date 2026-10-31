@@ -77,3 +77,11 @@ class AnalyzeTests(TestCase):
     def test_monthly_and_top_products(self):
         self.assertEqual([m["month"] for m in self.result["monthly"]], ["2010-01", "2010-02"])
         self.assertEqual(self.result["top_products"][0]["name"], "WIDGET")
+
+@override_settings(MEDIA_ROOT=tempfile.mkdtemp())
+class DashboardTests(TestCase):
+    def test_detail_page_renders_chart_containers(self):
+        f = SimpleUploadedFile("sales.csv", (HEADER + ROW).encode(), content_type="text/csv")
+        response = self.client.post(reverse("upload"), {"file": f}, follow=True)
+        self.assertContains(response, 'id="monthly"')
+        self.assertContains(response, 'id="summary"')
