@@ -117,3 +117,14 @@ class ForecastTests(TestCase):
         result = forecast_next(self.months(12), "2010-01-01", "2010-12-09")
         self.assertEqual(result["dropped"], ["2010-12"])
         self.assertEqual(result["next_month"], "2010-12")
+
+
+@override_settings(MEDIA_ROOT=tempfile.mkdtemp())
+class PrivacyTests(TestCase):
+    def test_other_visitors_cannot_open_my_dataset(self):
+        from django.test import Client
+
+        f = SimpleUploadedFile("sales.csv", (HEADER + ROW).encode(), content_type="text/csv")
+        url = self.client.post(reverse("upload"), {"file": f})["Location"]
+        self.assertEqual(self.client.get(url).status_code, 200)
+        self.assertEqual(Client().get(url).status_code, 404)
