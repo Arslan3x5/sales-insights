@@ -6,7 +6,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from .models import Dataset
-from .services import analyze, map_columns
+from .services import analyze, forecast_next, map_columns
 
 HEADER = "Invoice,StockCode,Description,Quantity,InvoiceDate,Price,Customer ID,Country\n"
 ROW = "489434,85048,GLASS BALL,12,2009-12-01 07:45:00,6.95,13085.0,United Kingdom\n"
@@ -96,3 +96,24 @@ class ExtrasTests(TestCase):
         self.assertEqual(len(extras["weekday"]), 7)
         self.assertEqual(extras["pareto"]["products"], 2)
         self.assertEqual(round(sum(q["share"] for q in extras["quarters"])), 100)
+
+
+class ForecastTests(TestCase):
+    def months(self, n):
+        return [{"month": f"2010-{i + 1:02d}", "revenue": 100.0 + 10 * i, "orders": 1} for i in range(n)]
+
+    def test_forecast_follows_a_clear_trend(self):
+        result = forecast_next(self.months(12), "2010-01-01", "2010-12-31")
+        self.assertTrue(result["available"])
+        self.assertEqual(result["next_month"], "2011-01")
+        self.assertGreater(result["value"], 200)
+        self.assertLess(result["value"], 240)
+
+    def test_needs_enough_months(self):
+        result = forecast_next(self.months(4), "2010-01-01", "2010-04-30")
+        self.assertFalse(result["available"])
+
+    def test_partial_last_month_is_excluded(self):
+        result = forecast_next(self.months(12), "2010-01-01", "2010-12-09")
+        self.assertEqual(result["dropped"], ["2010-12"])
+        self.assertEqual(result["next_month"], "2010-12")
