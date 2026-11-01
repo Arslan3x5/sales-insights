@@ -189,6 +189,7 @@ def analyze(file, mapping):
         "top_products": top_products,
         "top_countries": countries,
         "extras": extra_insights(data),
+        "forecast": forecast_next(monthly_list, kpis["first_date"], kpis["last_date"]),
     }
 
 def extra_insights(data):
@@ -281,3 +282,91 @@ def extra_insights(data):
         ]
         out["top10_share"] = round(float(top["revenue"].sum()) / seg_total * 100, 1)
     return out
+
+
+def forecast_next(monthly, first_date, last_date):
+    """Forecast next month's revenue with simple methods, chosen by backtest."""
+    import calendar
+
+    import numpy as np
+
+    first, last = pd.Timestamp(first_date), pd.Timestamp(last_date)
+    months = [dict(m) for m in monthly]
+    dropped = []
+    if months and first.day > 3:
+        dropped.append(months.pop(0)["month"])
+    if months and last.day < calendar.monthrange(last.year, last.month)[1] - 2:
+        dropped.append(months.pop()["month"])
+    if len(months) < 6:
+        return {"available": False, "reason": f"Need at least 6 complete months of data, found {len(months)}."}
+
+    y = np.array([m["revenue"] for m in months], dtype=float)
+
+    def last_value(h):
+        return h[-1]
+
+    def avg3(h):
+        return h[-3:].mean()
+
+    def trend(h):
+        w = h[-12:]
+        slope, intercept = np.polyfit(np.arange(len(w)), w, 1)
+        return max(slope * len(w) + intercept, 0.0)
+
+    def seasonal(h):
+        if len(h) < 15:
+            return None
+        base = h[-15:-12].sum()
+        return h[-12] * h[-3:].sum() / base if base > 0 else None
+
+    methods = {
+        "Last month repeated": last_value,
+        "3-month average": avg3,
+        "Linear trend": trend,
+        "Same month last year, scaled": seasonal,
+    }
+    tests = min(4, len(y) - 5)
+    start = len(y) - tests
+    scores = {}
+    for name, fn in methods.items():
+        preds = []
+        for i in range(start, len(y)):
+            p = fn(y[:i])
+            if p is None:
+                break
+            preds.append(float(p))
+        else:
+            actual = y[start:]
+            res = actual - np.array(preds)
+            scores[name] = {
+                "mae": float(np.abs(res).mean()),
+                "mape": float((np.abs(res) / np.maximum(actual, 1)).mean() * 100),
+                "preds": preds,
+                "res": res,
+            }
+
+    best = min(scores, key=lambda n: scores[n]["mae"])
+    value = float(methods[best](y))
+    res = scores[best]["res"]
+    spread = float(np.std(res, ddof=1)) if len(res) > 2 else scores[best]["mae"] * 1.25
+
+    return {
+        "available": True,
+        "method": best,
+        "next_month": str(pd.Period(months[-1]["month"], "M") + 1),
+        "value": round(value, 2),
+        "low": round(max(value - 1.28 * spread, 0.0), 2),
+        "high": round(value + 1.28 * spread, 2),
+        "mape": round(scores[best]["mape"], 1),
+        "history": [{"month": m["month"], "revenue": m["revenue"]} for m in months[-12:]],
+        "backtest": [
+            {"month": months[start + j]["month"], "actual": round(float(y[start + j]), 2),
+             "predicted": round(scores[best]["preds"][j], 2)}
+            for j in range(tests)
+        ],
+        "methods": sorted(
+            [{"name": n, "mape": round(s["mape"], 1)} for n, s in scores.items()],
+            key=lambda x: x["mape"],
+        ),
+        "dropped": dropped,
+    }
