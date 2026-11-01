@@ -86,6 +86,7 @@ details summary{cursor:pointer;font-weight:600}
     </details>
   </div>
 </div>
+{% include "insights/forecast.html" %}
 {% include "insights/extras.html" %}
 {{ dataset.summary|json_script:"summary" }}
 {% endwith %}

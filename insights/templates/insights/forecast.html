@@ -1,0 +1,74 @@
+<style>
+.fk{display:grid;grid-template-columns:repeat(4,1fr);gap:.8rem;margin-top:1rem}
+.fk div{padding:.9rem;border-radius:16px;background:color-mix(in srgb,var(--accent) 8%,transparent)}
+.fk strong{display:block;font-size:clamp(1.3rem,2.6vw,1.9rem);letter-spacing:-.04em;line-height:1.1}
+.fk span{color:var(--muted);font-size:.8rem}
+.fk .big{background:linear-gradient(135deg,var(--accent),color-mix(in srgb,var(--accent) 45%,var(--accent2)));color:#fff}
+.fk .big span{color:#ffffffcc}
+.fchart{width:100%;height:auto;display:block;margin-top:1rem}
+.fchart text{fill:var(--muted);font-size:11px}
+.fchart .grid{stroke:var(--line)}
+.fchart .hb{fill:url(#fg)}
+.fchart .fb{fill:var(--accent2);opacity:.55;stroke:var(--accent2);stroke-dasharray:4 3}
+.fchart .wk{stroke:var(--ink);stroke-width:2}
+.legend{display:flex;gap:1.2rem;flex-wrap:wrap;margin-top:.4rem;font-size:.8rem;color:var(--muted)}
+.how{margin:1rem 0 0;padding:1rem;border-radius:14px;border:1px solid var(--line);font-size:.9rem}
+.how p{margin:.2rem 0}
+@media (max-width:860px){.fk{grid-template-columns:1fr 1fr}}
+</style>
+<div id="forecast" class="card" style="margin-top:1.2rem"></div>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const node = document.getElementById("summary"), box = document.getElementById("forecast");
+  if (!node || !box) return;
+  const F = JSON.parse(node.textContent).forecast;
+  const fmt = n => Math.round(n).toLocaleString();
+  const short = n => n >= 1e6 ? (n / 1e6).toFixed(1) + "M" : n >= 1e3 ? (n / 1e3).toFixed(0) + "k" : String(Math.round(n));
+  const lab = m => new Date(m + "-01T00:00:00").toLocaleDateString(undefined, {month: "short", year: "2-digit"});
+  const head = '<h2>Next-month forecast</h2>';
+  if (!F) { box.innerHTML = head + '<p class="sub">Re-upload this file to generate a forecast.</p>'; return; }
+  if (!F.available) { box.innerHTML = head + `<p class="sub">${F.reason}</p>`; return; }
+
+  const last = F.history[F.history.length - 1];
+  const chg = last.revenue ? (F.value / last.revenue - 1) * 100 : 0;
+  const items = [...F.history.map(h => ({m: h.month, v: h.revenue, f: false})), {m: F.next_month, v: F.value, f: true}];
+  const W = 760, H = 270, L = 50, R = 8, T = 14, B = 34, w = W - L - R, h = H - T - B;
+  const max = Math.max(...items.map(i => i.v), F.high) || 1;
+  const step = w / items.length, bw = Math.max(8, step * 0.6), y = v => T + h - h * v / max;
+
+  let s = `<svg class="fchart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Revenue history and forecast"><defs><linearGradient id="fg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--accent2)"/><stop offset="1" stop-color="var(--accent)"/></linearGradient></defs>`;
+  for (let i = 0; i <= 4; i++) { const yy = T + h - h * i / 4; s += `<line class="grid" x1="${L}" x2="${W - R}" y1="${yy}" y2="${yy}"/><text x="${L - 8}" y="${yy + 4}" text-anchor="end">${short(max * i / 4)}</text>`; }
+  items.forEach((it, i) => {
+    const x = L + i * step + (step - bw) / 2, cx = x + bw / 2;
+    s += `<rect class="${it.f ? "fb" : "hb"}" x="${x}" y="${y(it.v)}" width="${bw}" height="${T + h - y(it.v)}" rx="5"><title>${lab(it.m)}: ${fmt(it.v)}${it.f ? " (forecast)" : ""}</title></rect>`;
+    s += `<text x="${cx}" y="${H - 12}" text-anchor="middle">${lab(it.m)}</text>`;
+    if (it.f) s += `<line class="wk" x1="${cx}" x2="${cx}" y1="${y(F.high)}" y2="${y(F.low)}"/><line class="wk" x1="${cx - 6}" x2="${cx + 6}" y1="${y(F.high)}" y2="${y(F.high)}"/><line class="wk" x1="${cx - 6}" x2="${cx + 6}" y1="${y(F.low)}" y2="${y(F.low)}"/>`;
+  });
+  s += "</svg>";
+
+  const WHY = {
+    "Last month repeated": "assumes next month will look like the last one",
+    "3-month average": "smooths out the last three months",
+    "Linear trend": "extends the straight-line trend of the last year",
+    "Same month last year, scaled": "takes the same month last year and scales it by recent growth"
+  };
+  const rough = F.mape > 25 ? " Past errors were large, so treat this as a rough guide only." : "";
+
+  box.innerHTML = head +
+    `<p class="sub" style="margin:0">Expected revenue for <strong>${lab(F.next_month)}</strong>, from ${F.history.length} complete months of data.</p>` +
+    `<div class="fk">` +
+      `<div class="big"><strong>${fmt(F.value)}</strong><span>forecast for ${lab(F.next_month)}</span></div>` +
+      `<div><strong class="${chg >= 0 ? "up" : "down"}">${chg >= 0 ? "▲" : "▼"} ${Math.abs(chg).toFixed(1)}%</strong><span>versus ${lab(last.month)}</span></div>` +
+      `<div><strong>${fmt(F.low)} to ${fmt(F.high)}</strong><span>rough likely range</span></div>` +
+      `<div><strong>±${F.mape}%</strong><span>typical error in recent months</span></div>` +
+    `</div>` + s +
+    `<div class="legend"><span>▮ Past months</span><span>▮ Forecast (dashed)</span><span>┃ Likely range</span></div>` +
+    `<div class="how"><p><strong>How it was built.</strong> Four simple methods were tested on the last ${F.backtest.length} months, each predicting a month it had not seen. The most accurate was <strong>${F.method}</strong>, which ${WHY[F.method]}.${rough}</p>` +
+    `<div class="table-wrap"><table><tr><th>Method tested</th><th>Average error</th><th></th></tr>` +
+    F.methods.map(m => `<tr><td>${m.name}</td><td>${m.mape}%</td><td>${m.name === F.method ? "✓ chosen" : ""}</td></tr>`).join("") + `</table></div>` +
+    `<div class="table-wrap"><table><tr><th>Backtest month</th><th>Actual</th><th>Predicted</th></tr>` +
+    F.backtest.map(b => `<tr><td>${lab(b.month)}</td><td>${fmt(b.actual)}</td><td>${fmt(b.predicted)}</td></tr>`).join("") + `</table></div>` +
+    (F.dropped.length ? `<p class="note" style="font-size:.8rem;color:var(--muted)">Partial months left out so they don't look like a sales drop: ${F.dropped.map(lab).join(", ")}.</p>` : "") +
+    `<p class="note" style="font-size:.8rem;color:var(--muted)">Based on past sales only. It does not know about promotions, price changes or holidays, and the range is approximate.</p></div>`;
+});
+</script>
