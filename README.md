@@ -84,9 +84,7 @@ Run the tests with `python manage.py test`.
 | `UPLOAD_MAX_MB` | Maximum upload size (default 25) |
 
 ## Limitations
-- The forecast uses past sales only. It does not know about promotions, prices or holidays, and its range is approximate.
-- Recommendations are rule-based starting points for discussion, not guarantees.
-- There are no user accounts yet, so uploads are visible to anyone with the link. Do not upload private data to the public demo.
+- This is a public demo with no user accounts. Uploaded results can be viewed by other visitors, so please use the synthetic sample file or non-sensitive data.
 
 ## Roadmap
 - [ ] User accounts and private datasets
