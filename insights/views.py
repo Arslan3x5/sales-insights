@@ -1,8 +1,16 @@
+from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 
 from .forms import UploadForm
 from .models import Dataset
 from .services import CsvError, analyze, read_csv
+
+SESSION_KEY = "dataset_ids"
+
+
+def my_ids(request):
+    """IDs of the datasets this visitor uploaded in this browser session."""
+    return request.session.get(SESSION_KEY, [])
 
 
 def upload(request):
@@ -20,11 +28,15 @@ def upload(request):
             form.add_error("file", str(exc))
         else:
             dataset.save(update_fields=["summary"])
+            request.session[SESSION_KEY] = (my_ids(request) + [dataset.pk])[-20:]
             return redirect("dataset_detail", pk=dataset.pk)
-    return render(request, "insights/upload.html", {"form": form, "recent": Dataset.objects.all()[:5]})
+    recent = Dataset.objects.filter(pk__in=my_ids(request))[:5]
+    return render(request, "insights/upload.html", {"form": form, "recent": recent})
 
 
 def dataset_detail(request, pk):
+    if pk not in my_ids(request):
+        raise Http404("Dataset not found.")
     dataset = get_object_or_404(Dataset, pk=pk)
     with dataset.file.open("rb") as f:
         preview = read_csv(f, nrows=5).fillna("")
