@@ -4,7 +4,7 @@
 
 Upload a sales CSV and get a cleaned dataset, KPIs, customer segments, a next-month forecast and plain-English recommendations. Built with Django and pandas.
 
-**Live demo:** https://YOURNAME.pythonanywhere.com
+**Live demo:** https://arslan.pythonanywhere.com
 **No data?** Download the [synthetic sample file](sample_data/demo_sales.csv) and upload it.
 
 | Light | Dark |
